@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tappy Bird</title>
+<link rel="preload" href="Gamefront.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: 'Gamefront'; src: url('Gamefront.woff2') format('woff2'); font-weight: 100 900; font-display: block; }
+@font-face { font-family: 'Balance'; src: url('BALANCE.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+:root { --f: 'Gamefront', monospace; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #1c2a30; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+#stage { position: absolute; left: 50%; top: 50%; width: 640px; height: 1100px; transform-origin: 50% 50%; font-family: var(--f); }
+#cv { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.hidden { display: none !important; }
+button { font-family: var(--f); font-weight: 700; border: none; background: none; cursor: pointer; color: #fff; line-height: 1; }
+button:disabled { cursor: default; }
+.ol { text-shadow: 3px 0 var(--t), -3px 0 var(--t), 0 3px var(--t), 0 -3px var(--t), 3px 3px var(--t), -3px -3px var(--t), 3px -3px var(--t), -3px 3px var(--t), 0 6px var(--t); }
+
+/* Stepped pixel corners. --c1/--c2 are the two corner steps, --bw the outline, --bb the (thicker) bottom outline.
+   The element itself paints the outline colour; ::before paints the fill inside it. */
+/* Corner = 4 small 2px stair-steps along a quarter circle: rounder than a 2-step notch, still visibly pixel. */
+.px, .pxc { --a: 2px; --b: 3px; --c: 5px; --d: 8px; --e: 12px;
+  --clip: polygon(
+    0 var(--e), var(--a) var(--e), var(--a) var(--c), var(--b) var(--c), var(--b) var(--b), var(--c) var(--b), var(--c) var(--a), var(--e) var(--a), var(--e) 0,
+    calc(100% - var(--e)) 0, calc(100% - var(--e)) var(--a), calc(100% - var(--c)) var(--a), calc(100% - var(--c)) var(--b), calc(100% - var(--b)) var(--b), calc(100% - var(--b)) var(--c), calc(100% - var(--a)) var(--c), calc(100% - var(--a)) var(--e), 100% var(--e),
+    100% calc(100% - var(--e)), calc(100% - var(--a)) calc(100% - var(--e)), calc(100% - var(--a)) calc(100% - var(--c)), calc(100% - var(--b)) calc(100% - var(--c)), calc(100% - var(--b)) calc(100% - var(--b)), calc(100% - var(--c)) calc(100% - var(--b)), calc(100% - var(--c)) calc(100% - var(--a)), calc(100% - var(--e)) calc(100% - var(--a)), calc(100% - var(--e)) 100%,
+    var(--e) 100%, var(--e) calc(100% - var(--a)), var(--c) calc(100% - var(--a)), var(--c) calc(100% - var(--b)), var(--b) calc(100% - var(--b)), var(--b) calc(100% - var(--c)), var(--a) calc(100% - var(--c)), var(--a) calc(100% - var(--e)), 0 calc(100% - var(--e)));
+  clip-path: var(--clip); }
+.px { --bw: 3px; --bb: 3px; --oc: transparent; --bg: transparent; --bev: none; position: relative; isolation: isolate; background: var(--oc); }
+.px::before { content: ''; position: absolute; z-index: -1; top: var(--bw); left: var(--bw); right: var(--bw); bottom: var(--bb);
+  background: var(--bg); box-shadow: var(--bev); clip-path: var(--clip); pointer-events: none; }
+.big { --a: 2px; --b: 4px; --c: 7px; --d: 11px; --e: 16px; }
+.sm { --a: 2px; --b: 2px; --c: 4px; --d: 6px; --e: 8px; }
+
+#header { position: absolute; left: 0; right: 0; top: 0; height: 76px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between; }
+#wallet { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 8px; cursor: pointer;
+  font: 700 26px 'Balance', Arial, sans-serif; color: rgba(255,255,255,.92); text-shadow: 0 2px 0 rgba(0,0,0,.18); transition: background .15s; }
+#wallet:hover { --oc: rgba(0,0,0,.08); }
+#wallet svg { width: 30px; height: 30px; }
+#wallet .caret { font-size: 16px; opacity: .8; }
+#logo { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); height: 64px; image-rendering: pixelated; pointer-events: none; }
+#muteBtn { width: 58px; height: 48px; display: flex; align-items: center; justify-content: center;
+  --oc: #8e8466; --bg: #fff; --bev: inset 0 -4px 0 #d6d6d6; --bb: 5px; }
+#muteBtn svg { width: 28px; height: 28px; }
+
+.menu { position: absolute; left: 50%; top: 769px; width: 510px; transform: translateX(-50%); padding: 21px; display: flex; flex-direction: column; gap: 12px;
+  --bw: 4px; --bb: 4px; --oc: #3d3d3d; --bg: #e4e4e4; --bev: inset 0 0 0 5px #fff; }
+.seg { display: flex; gap: 8px; height: 80px; padding: 6px; --oc: #d3d3d3; }
+.segb { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #4a3a44; }
+.segb b { font-size: 28px; }
+.segb small { font-size: 13px; color: #8f8f8f; letter-spacing: 1px; }
+.segb.on { --oc: #123f73; --bg: linear-gradient(#3ec3ff 0 50%, #1ea4f2 50% 100%); --bev: inset 0 -5px 0 #1784cf, inset 0 3px 0 #8ee0ff; --bb: 6px; }
+.segb.on b, .segb.on small { color: #fff; text-shadow: 2px 0 #123f73, -2px 0 #123f73, 0 2px #123f73, 0 -2px #123f73, 2px 2px #123f73, -2px -2px #123f73, 2px -2px #123f73, -2px 2px #123f73, 0 4px #123f73; }
+.betrow { display: flex; align-items: center; height: 50px; padding: 0 8px; --oc: #d3d3d3; }
+.gbtn { width: 58px; height: 38px; font-size: 28px; --t: #2f5a12;
+  --oc: #2f5a12; --bg: #a3d44a; --bev: inset 0 -4px 0 #74a92c, inset 0 3px 0 #c9ef84; --bb: 4px; }
+.gbtn:active:not(:disabled) { transform: translateY(2px); }
+.gbtn:disabled { filter: grayscale(.7) opacity(.5); }
+.betv { flex: 1; text-align: center; font-size: 32px; color: #4a2a14; }
+.betv i { font-style: normal; color: #a9a9a9; margin-left: 8px; }
+.chips { display: flex; gap: 10px; height: 40px; }
+.chip { flex: 1; color: #3f6a17; font-size: 20px; --oc: #cfe6a2; --bw: 0px; --bb: 0px; --bev: inset 0 -4px 0 #b3d17f; --bg: #cfe6a2; }
+.chip:active { transform: translateY(2px); }
+.playrow { display: flex; gap: 16px; height: 80px; }
+.ybtn { color: #5c3d06; --oc: #6b4a12; --bg: linear-gradient(#ffdc4d 0 50%, #ffc118 50% 100%);
+  --bev: inset 0 -6px 0 #e39100, inset 0 4px 0 #fff0a0; --bb: 6px; }
+.ybtn:active:not(:disabled) { transform: translateY(3px); }
+.ybtn:disabled { filter: saturate(.3) opacity(.55); }
+.sqb { width: 82px; display: flex; align-items: center; justify-content: center; }
+.sqb svg { width: 40px; height: 40px; }
+.playb { flex: 1; font-size: 46px; font-style: italic; letter-spacing: 2px;
+  --bg: repeating-linear-gradient(115deg, rgba(255,255,255,.24) 0 16px, transparent 16px 64px), linear-gradient(#ffdc4d 0 50%, #ffc118 50% 100%); }
+
+#roundCtl { position: absolute; left: 50%; top: 970px; transform: translateX(-50%); display: flex; gap: 32px; }
+.btn { width: 262px; height: 106px; transition: filter .2s; --bw: 4px; --bb: 9px; }
+.btn:active:not(:disabled) { transform: translateY(4px); }
+.btn:disabled { filter: saturate(.35) brightness(1.15) opacity(.6); }
+.yellow { --t: #7a3d06; --oc: #6b4a12; --bg: linear-gradient(#ffe04a 0 50%, #ffb21c 50% 100%); --bev: inset 0 -7px 0 #f08f00, inset 0 4px 0 #fff0a0; }
+.blue { --t: #164a8c; font-size: 42px; --oc: #164a8c; --bg: linear-gradient(#6fd0ff 0 50%, #36a8f6 50% 100%); --bev: inset 0 -7px 0 #2286dc, inset 0 4px 0 #b4ebff; }
+.amt { display: flex; justify-content: center; align-items: flex-end; gap: 6px; }
+.amt b { font-size: 38px; }
+.amt small { font-size: 12px; padding: 2px 4px; margin-bottom: 3px; background: #e0820f; text-shadow: none; }
+.lbl { display: block; margin-top: 8px; font-size: 18px; color: #8a4a06; letter-spacing: 1px; }
+#dashWrap { position: relative; }
+#hand { position: absolute; right: 18px; bottom: -34px; width: 64px; pointer-events: none; opacity: 0; image-rendering: pixelated; transition: opacity .2s; }
+#hand.show { opacity: 1; animation: tapHint .9s ease-in-out infinite; }
+@keyframes tapHint { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-6px, -12px) scale(1.08); } }
+
+#walletMenu { position: absolute; inset: 0; z-index: 10; background: rgba(20,34,40,.55); display: flex; align-items: flex-start; justify-content: flex-start; padding: 84px 0 0 14px; }
+#walletMenu .panel { width: 488px; padding: 24px; display: flex; flex-direction: column; gap: 14px; color: #4a3a44;
+  --bw: 4px; --bb: 4px; --oc: #3d3d3d; --bg: #e4e4e4; --bev: inset 0 0 0 5px #fff; animation: pop .18s steps(4); }
+@keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+.wm-head { display: flex; align-items: center; justify-content: space-between; font-size: 26px; }
+.wm-x { width: 42px; height: 42px; color: #4a3a44; font-size: 22px; --oc: #d3d3d3; --bw: 0px; --bb: 0px; }
+.wm-lbl { font-size: 14px; color: #8f8f8f; letter-spacing: 1px; margin-bottom: -6px; }
+.wm-row { display: flex; gap: 10px; align-items: center; }
+.wm-box { flex: 1; height: 58px; --oc: #b9b9b9; --bg: #fff; }
+.wm-box:focus-within { --oc: #1ea4f2; }
+.wm-in { width: 100%; height: 100%; padding: 0 16px; border: 0; background: transparent; color: #4a2a14;
+  font: 700 28px 'Balance', Arial, sans-serif; outline: none; user-select: text; -webkit-user-select: text; }
+.wm-sym { font-size: 28px; color: #a9a9a9; min-width: 40px; text-align: center; }
+.wm-presets { display: flex; gap: 10px; height: 40px; }
+.wm-presets .chip { font-size: 17px; }
+.wm-cur { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.wm-cur button { height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #4a3a44; --oc: #d3d3d3; --bw: 0px; --bb: 0px; }
+.wm-cur button b { font: 700 20px 'Balance', Arial, sans-serif; }
+.wm-cur button small { font-size: 12px; color: #8f8f8f; }
+.wm-cur button.on { color: #fff; --oc: #123f73; --bw: 3px; --bb: 3px; --bg: linear-gradient(#3ec3ff 0 50%, #1ea4f2 50% 100%); }
+.wm-cur button.on small { color: #e3f6ff; }
+.wm-note { font-size: 13px; color: #c0392b; text-align: center; }
+.wm-apply { height: 64px; font-size: 30px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="smokeKey" color-interpolation-filters="sRGB">
+    <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.2 2.36 0.44 0 -2"/>
+  </filter>
+</svg>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="header">
+    <div id="wallet" class="px sm" role="button" tabindex="0" aria-label="Баланс и валюта">
+      <svg viewBox="0 0 24 24" fill="#fff"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H18v3h1.5A1.5 1.5 0 0 1 21 8.5v10a1.5 1.5 0 0 1-1.5 1.5h-14A2.5 2.5 0 0 1 3 17.5zM5.5 6a.5.5 0 0 0 0 1H16V6zM15 12a2 2 0 1 0 0 4h4v-4z"/></svg>
+      <span><span id="balVal">10 000.00</span><span class="cur-sym">$</span></span>
+      <span class="caret">▼</span>
+    </div>
+    <img id="logo" src="logo.png" alt="Tappy Bird">
+    <button id="muteBtn" class="px sm" aria-label="Звук"></button>
+  </div>
+
+  <div id="idleCtl" class="menu px big">
+    <div class="seg px">
+      <button id="modeEasy" class="segb px"><b>EASY</b><small id="easySteps">24 STEPS</small></button>
+      <button id="modeHard" class="segb px"><b>HARD</b><small id="hardSteps">14 STEPS</small></button>
+    </div>
+    <div class="betrow px">
+      <button id="betMinus" class="gbtn px sm ol">-</button>
+      <div class="betv"><span id="betVal">2</span><i class="cur-sym">$</i></div>
+      <button id="betPlus" class="gbtn px sm ol">+</button>
+    </div>
+    <div class="chips">
+      <button class="chip px sm bet-chip" data-v="1">1</button>
+      <button class="chip px sm bet-chip" data-v="2">2</button>
+      <button class="chip px sm bet-chip" data-v="5">5</button>
+      <button class="chip px sm bet-chip" data-v="10">10</button>
+    </div>
+    <div class="playrow">
+      <button id="repeatBtn" class="ybtn px sqb" aria-label="Повторить ставку">
+        <svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="#5c3d06" fill-rule="evenodd"><path d="M5 1h6v1h2v2h1v2h1v4h-1v2h-1v2h-2v1H5v-1H3v-2H2v-2H1V6h1V4h1V2h2zM5 3v1H4v2H3v4h1v2h1v1h6v-1h1v-2h1V6h-1V4h-1V3z"/><path d="M6 5h1v1h1v1h1v1h1v1H9v1H8v1H7v1H6z"/></svg>
+      </button>
+      <button id="playBtn" class="ybtn px playb">PLAY</button>
+    </div>
+  </div>
+
+  <div id="roundCtl" class="hidden">
+    <button id="withdrawBtn" class="btn px big yellow"><span class="amt ol"><b id="wdVal">0.00</b><small class="cur-code">USD</small></span><span class="lbl">WITHDRAW</span></button>
+    <div id="dashWrap">
+      <button id="dashBtn" class="btn px big blue ol">DASH</button>
+      <img id="hand" src="hand-G9-7pg.webp" alt="">
+    </div>
+  </div>
+
+  <div id="walletMenu" class="hidden">
+    <div class="panel px big">
+      <div class="wm-head"><span>BALANCE</span><button id="wmClose" class="wm-x px sm" aria-label="Закрыть">✕</button></div>
+      <div class="wm-lbl">AMOUNT</div>
+      <div class="wm-row">
+        <div class="wm-box px sm"><input id="wmInput" class="wm-in" type="number" inputmode="decimal" min="0" step="any"></div>
+        <span class="wm-sym cur-sym">$</span>
+      </div>
+      <div class="wm-presets">
+        <button class="chip px sm wm-preset" data-v="1000">1 000</button>
+        <button class="chip px sm wm-preset" data-v="10000">10 000</button>
+        <button class="chip px sm wm-preset" data-v="100000">100 000</button>
+        <button class="chip px sm wm-preset" data-v="1000000">1 000 000</button>
+      </div>
+      <div class="wm-lbl">CURRENCY</div>
+      <div id="wmCur" class="wm-cur"></div>
+      <div id="wmNote" class="wm-note hidden">FINISH THE ROUND FIRST</div>
+      <button id="wmApply" class="ybtn px wm-apply">APPLY</button>
+    </div>
+  </div>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
